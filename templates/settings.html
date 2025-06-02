@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+   <head>
+      <meta charset="UTF-8" />
+      <meta
+         name="viewport"
+         content="width=device-width, initial-scale=1.0"
+      />
+      <title>Settings - Parking Management System</title>
+      <script src="https://cdn.jsdelivr.net/npm/react@18.2.0/umd/react.production.min.js"></script>
+      <script src="https://cdn.jsdelivr.net/npm/react-dom@18.2.0/umd/react-dom.production.min.js"></script>
+      <script src="https://cdn.tailwindcss.com"></script>
+      <script src="https://cdn.jsdelivr.net/npm/@babel/standalone@7.22.9/babel.min.js"></script>
+      <link
+         href="https://cdn.jsdelivr.net/npm/boxicons@latest/css/boxicons.min.css"
+         rel="stylesheet"
+      />
+      <style>
+         body {
+            margin: 0;
+            font-family: "Inter", sans-serif;
+         }
+         .sidebar {
+            transition: transform 0.3s ease;
+         }
+         .sidebar-hidden {
+            transform: translateX(-100%);
+         }
+         @media (min-width: 768px) {
+            .sidebar {
+               transform: translateX(0);
+            }
+         }
+      </style>
+   </head>
+   <body>
+      <div id="root"></div>
+      <script type="text/babel">
+         const { useState } = React;
+
+         const SettingsPage = () => {
+            const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+            const [settings, setSettings] = useState({
+               parkingRate: 500,
+               maxCapacity: 100,
+               graceMinutes: 15,
+               alertThreshold: 90,
+               autoLockGate: true,
+               enableNotifications: true,
+               darkMode: false,
+            });
+
+            const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
+
+            const handleSettingChange = (key, value) => {
+               setSettings((prev) => ({ ...prev, [key]: value }));
+            };
+
+            const handleSaveSettings = () => {
+               // Call API to save settings
+               console.log("Saving settings:", settings);
+               alert("Settings saved successfully!");
+            };
+
+            return (
+               <div className="min-h-screen bg-gray-100">
+                  {/* Header */}
+                  <header className="fixed top-0 left-0 right-0 bg-white shadow-md h-16 flex items-center justify-between px-4 z-50">
+                     <button
+                        onClick={toggleSidebar}
+                        className="text-2xl"
+                     >
+                        <i
+                           className={`bx ${
+                              isSidebarOpen ? "bx-x" : "bx-menu"
+                           }`}
+                        ></i>
+                     </button>
+                     <h1 className="text-lg font-semibold">
+                        NEW MARS Parking Management System
+                     </h1>
+                     <i className="bx bx-user text-2xl"></i>
+                  </header>
+
+                  {/* Sidebar */}
+                  <nav
+                     className={`fixed top-16 left-0 h-full bg-indigo-600 w-64 transform ${
+                        isSidebarOpen ? "" : "sidebar-hidden"
+                     } transition-transform z-40`}
+                  >
+                     <div className="flex flex-col h-full p-4">
+                        <a
+                           href="/"
+                           className="flex items-center text-white py-2 px-3 rounded mb-2 hover:bg-indigo-700"
+                        >
+                           <i className="bx bx-grid-alt mr-3"></i>
+                           <span>Dashboard</span>
+                        </a>
+                        <a
+                           href="/payments"
+                           className="flex items-center text-white py-2 px-3 rounded mb-2 hover:bg-indigo-700"
+                        >
+                           <i className="bx bx-money mr-3"></i>
+                           <span>Payments</span>
+                        </a>
+                        <a
+                           href="/reports"
+                           className="flex items-center text-white py-2 px-3 rounded mb-2 hover:bg-indigo-700"
+                        >
+                           <i className="bx bx-message-square-detail mr-3"></i>
+                           <span>Reports</span>
+                        </a>
+                        <a
+                           href="/settings"
+                           className="flex items-center text-white py-2 px-3 rounded mb-2 bg-indigo-700"
+                        >
+                           <i className="bx bx-cog mr-3"></i>
+                           <span>Settings</span>
+                        </a>
+                     </div>
+                  </nav>
+
+                  {/* Main Content */}
+                  <main
+                     className={`mt-16 ${
+                        isSidebarOpen ? "md:ml-64" : ""
+                     } p-6 transition-all duration-300`}
+                  >
+                     <div className="max-w-3xl mx-auto">
+                        <div className="bg-white rounded-xl shadow-sm p-6">
+                           <h2 className="text-2xl font-semibold mb-6">
+                              System Settings
+                           </h2>
+
+                           {/* Pricing Settings */}
+                           <div className="mb-8">
+                              <h3 className="text-lg font-semibold mb-4">
+                                 Pricing
+                              </h3>
+                              <div className="space-y-4">
+                                 <div>
+                                    <label className="block text-gray-600 mb-2">
+                                       Hourly Parking Rate (RWF)
+                                    </label>
+                                    <input
+                                       type="number"
+                                       value={settings.parkingRate}
+                                       onChange={(e) =>
+                                          handleSettingChange(
+                                             "parkingRate",
+                                             parseInt(e.target.value)
+                                          )
+                                       }
+                                       className="border rounded px-3 py-2 w-full"
+                                    />
+                                 </div>
+                                 <div>
+                                    <label className="block text-gray-600 mb-2">
+                                       Grace Period (minutes)
+                                    </label>
+                                    <input
+                                       type="number"
+                                       value={settings.graceMinutes}
+                                       onChange={(e) =>
+                                          handleSettingChange(
+                                             "graceMinutes",
+                                             parseInt(e.target.value)
+                                          )
+                                       }
+                                       className="border rounded px-3 py-2 w-full"
+                                    />
+                                 </div>
+                              </div>
+                           </div>
+
+                           {/* Capacity Settings */}
+                           <div className="mb-8">
+                              <h3 className="text-lg font-semibold mb-4">
+                                 Capacity
+                              </h3>
+                              <div className="space-y-4">
+                                 <div>
+                                    <label className="block text-gray-600 mb-2">
+                                       Maximum Capacity
+                                    </label>
+                                    <input
+                                       type="number"
+                                       value={settings.maxCapacity}
+                                       onChange={(e) =>
+                                          handleSettingChange(
+                                             "maxCapacity",
+                                             parseInt(e.target.value)
+                                          )
+                                       }
+                                       className="border rounded px-3 py-2 w-full"
+                                    />
+                                 </div>
+                                 <div>
+                                    <label className="block text-gray-600 mb-2">
+                                       Occupancy Alert Threshold (%)
+                                    </label>
+                                    <input
+                                       type="number"
+                                       value={settings.alertThreshold}
+                                       onChange={(e) =>
+                                          handleSettingChange(
+                                             "alertThreshold",
+                                             parseInt(e.target.value)
+                                          )
+                                       }
+                                       className="border rounded px-3 py-2 w-full"
+                                    />
+                                 </div>
+                              </div>
+                           </div>
+
+                           {/* System Settings */}
+                           <div className="mb-8">
+                              <h3 className="text-lg font-semibold mb-4">
+                                 System
+                              </h3>
+                              <div className="space-y-4">
+                                 <div className="flex items-center justify-between">
+                                    <label className="text-gray-600">
+                                       Automatic Gate Lock
+                                    </label>
+                                    <label className="relative inline-flex items-center cursor-pointer">
+                                       <input
+                                          type="checkbox"
+                                          checked={settings.autoLockGate}
+                                          onChange={(e) =>
+                                             handleSettingChange(
+                                                "autoLockGate",
+                                                e.target.checked
+                                             )
+                                          }
+                                          className="sr-only peer"
+                                       />
+                                       <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                                    </label>
+                                 </div>
+                                 <div className="flex items-center justify-between">
+                                    <label className="text-gray-600">
+                                       Enable Notifications
+                                    </label>
+                                    <label className="relative inline-flex items-center cursor-pointer">
+                                       <input
+                                          type="checkbox"
+                                          checked={settings.enableNotifications}
+                                          onChange={(e) =>
+                                             handleSettingChange(
+                                                "enableNotifications",
+                                                e.target.checked
+                                             )
+                                          }
+                                          className="sr-only peer"
+                                       />
+                                       <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                                    </label>
+                                 </div>
+                              </div>
+                           </div>
+
+                           {/* Save Button */}
+                           <div className="flex justify-end">
+                              <button
+                                 onClick={handleSaveSettings}
+                                 className="bg-indigo-600 text-white px-6 py-2 rounded hover:bg-indigo-700"
+                              >
+                                 Save Changes
+                              </button>
+                           </div>
+                        </div>
+                     </div>
+                  </main>
+               </div>
+            );
+         };
+
+         ReactDOM.render(<SettingsPage />, document.getElementById("root"));
+      </script>
+   </body>
+</html>

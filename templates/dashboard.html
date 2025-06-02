@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="en">
+   <head>
+      <meta charset="UTF-8" />
+      <meta
+         name="viewport"
+         content="width=device-width, initial-scale=1.0"
+      />
+      <title>Parking Management Dashboard</title>
+      <script src="https://cdn.jsdelivr.net/npm/react@18.2.0/umd/react.production.min.js"></script>
+      <script src="https://cdn.jsdelivr.net/npm/react-dom@18.2.0/umd/react-dom.production.min.js"></script>
+      <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+      <script src="https://cdn.jsdelivr.net/npm/moment@2.29.4/moment.min.js"></script>
+      <script src="https://cdn.tailwindcss.com"></script>
+      <script src="https://cdn.jsdelivr.net/npm/@babel/standalone@7.22.9/babel.min.js"></script>
+      <link
+         href="https://cdn.jsdelivr.net/npm/boxicons@latest/css/boxicons.min.css"
+         rel="stylesheet"
+      />
+      <style>
+         body {
+            margin: 0;
+            font-family: "Inter", sans-serif;
+         }
+         .chart-container {
+            height: 300px; /* Fixed height for charts */
+         }
+         .sidebar {
+            transition: transform 0.3s ease;
+         }
+         .sidebar-hidden {
+            transform: translateX(-100%);
+         }
+         @media (min-width: 768px) {
+            .sidebar {
+               transform: translateX(0);
+            }
+         }
+      </style>
+   </head>
+   <body>
+      <div id="root"></div>
+      <script type="text/babel">
+         const { useState, useEffect, useCallback } = React;
+
+         const Dashboard = () => {
+            const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+            const [stats, setStats] = useState({
+               occupancy: 0,
+               revenue: 0,
+               vehicles24h: 0,
+               alerts24h: 0,
+            });
+            const [revenueData, setRevenueData] = useState([]);
+            const [occupancyData, setOccupancyData] = useState([0, 100]);
+            const [vehicleEntries, setVehicleEntries] = useState([]);
+            const [alerts, setAlerts] = useState([]);
+            const [revenueChart, setRevenueChart] = useState(null);
+            const [occupancyChart, setOccupancyChart] = useState(null);
+
+            const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
+
+            const initializeCharts = useCallback(() => {
+               const revenueCtx = document
+                  .getElementById("revenueChart")
+                  ?.getContext("2d");
+               const occupancyCtx = document
+                  .getElementById("occupancyChart")
+                  ?.getContext("2d");
+
+               if (revenueCtx && !revenueChart) {
+                  setRevenueChart(
+                     new Chart(revenueCtx, {
+                        type: "line",
+                        data: {
+                           labels: [],
+                           datasets: [
+                              {
+                                 label: "Revenue (RWF)",
+                                 data: [],
+                                 borderColor: "#4723D9",
+                                 tension: 0.4,
+                                 fill: true,
+                                 backgroundColor: "rgba(71, 35, 217, 0.1)",
+                              },
+                           ],
+                        },
+                        options: {
+                           responsive: true,
+                           maintainAspectRatio: false,
+                           plugins: { legend: { display: false } },
+                           scales: { y: { beginAtZero: true } },
+                        },
+                     })
+                  );
+               }
+
+               if (occupancyCtx && !occupancyChart) {
+                  setOccupancyChart(
+                     new Chart(occupancyCtx, {
+                        type: "doughnut",
+                        data: {
+                           labels: ["Occupied", "Available"],
+                           datasets: [
+                              {
+                                 data: [0, 100],
+                                 backgroundColor: ["#4723D9", "#E0E0E0"],
+                              },
+                           ],
+                        },
+                        options: {
+                           responsive: true,
+                           maintainAspectRatio: false,
+                           plugins: { legend: { position: "bottom" } },
+                        },
+                     })
+                  );
+               }
+            }, [revenueChart, occupancyChart]);
+
+            const updateData = useCallback(async () => {
+               try {
+                  const [
+                     statsRes,
+                     occupancyRes,
+                     revenueRes,
+                     entriesRes,
+                     alertsRes,
+                  ] = await Promise.all([
+                     fetch("/api/stats").then((res) => res.json()),
+                     fetch("/api/occupancy").then((res) => res.json()),
+                     fetch("/api/revenue/hourly").then((res) => res.json()),
+                     fetch("/api/recent_entries").then((res) => res.json()),
+                     fetch("/api/recent_alerts").then((res) => res.json()),
+                  ]);
+
+                  setStats({
+                     occupancy: occupancyRes.current_occupancy || 0,
+                     revenue: statsRes.total_revenue || 0,
+                     vehicles24h: statsRes.total_entries || 0,
+                     alerts24h: statsRes.alert_count || 0,
+                  });
+
+                  const totalSpaces = 100;
+                  setOccupancyData([
+                     occupancyRes.current_occupancy || 0,
+                     totalSpaces - (occupancyRes.current_occupancy || 0),
+                  ]);
+
+                  const hours = revenueRes.map((d) =>
+                     new Date(d.hour).toLocaleTimeString()
+                  );
+                  const revenues = revenueRes.map((d) => d.revenue);
+                  setRevenueData({ labels: hours, data: revenues });
+
+                  setVehicleEntries(entriesRes);
+                  setAlerts(alertsRes);
+
+                  if (revenueChart) {
+                     revenueChart.data.labels = hours;
+                     revenueChart.data.datasets[0].data = revenues;
+                     revenueChart.update("none");
+                  }
+
+                  if (occupancyChart) {
+                     occupancyChart.data.datasets[0].data = [
+                        occupancyRes.current_occupancy || 0,
+                        totalSpaces - (occupancyRes.current_occupancy || 0),
+                     ];
+                     occupancyChart.update("none");
+                  }
+               } catch (error) {
+                  console.error("Data fetch error:", error);
+               }
+            }, [revenueChart, occupancyChart]);
+
+            useEffect(() => {
+               initializeCharts();
+               updateData();
+               const interval = setInterval(updateData, 5000);
+               return () => clearInterval(interval);
+            }, [initializeCharts, updateData]);
+
+            const getAlertClass = (alertType) => {
+               switch (alertType?.toLowerCase()) {
+                  case "unauthorized_exit":
+                     return "bg-red-100 text-red-800";
+                  case "payment_failed":
+                     return "bg-yellow-100 text-yellow-800";
+                  case "system_error":
+                     return "bg-red-100 text-red-800";
+                  default:
+                     return "bg-blue-100 text-blue-800";
+               }
+            };
+
+            const getAlertIcon = (alertType) => {
+               switch (alertType?.toLowerCase()) {
+                  case "unauthorized_exit":
+                     return "bx-error";
+                  case "payment_failed":
+                     return "bx-dollar";
+                  case "system_error":
+                     return "bx-error-circle";
+                  default:
+                     return "bx-info-circle";
+               }
+            };
+
+            return (
+               <div className="min-h-screen bg-gray-100">
+                  {/* Header */}
+                  <header className="fixed top-0 left-0 right-0 bg-white shadow-md h-16 flex items-center justify-between px-4 z-50">
+                     <button
+                        onClick={toggleSidebar}
+                        className="text-2xl"
+                     >
+                        <i
+                           className={`bx ${
+                              isSidebarOpen ? "bx-x" : "bx-menu"
+                           }`}
+                        ></i>
+                     </button>
+                     <h1 className="text-lg font-semibold">
+                        NEW MARS Parking Management System
+                     </h1>
+                     <i className="bx bx-user text-2xl"></i>
+                  </header>
+
+                  {/* Sidebar */}
+                  <nav
+                     className={`fixed top-16 left-0 h-full bg-indigo-600 w-64 transform ${
+                        isSidebarOpen ? "" : "sidebar-hidden"
+                     } transition-transform z-40`}
+                  >
+                     <div className="flex flex-col h-full p-4">
+                        <a
+                           href="/"
+                           className="flex items-center text-white py-2 px-3 rounded mb-2 bg-indigo-700"
+                        >
+                           <i className="bx bx-grid-alt mr-3"></i>
+                           <span>Dashboard</span>
+                        </a>
+                        <a
+                           href="/payments"
+                           className="flex items-center text-white py-2 px-3 rounded mb-2 hover:bg-indigo-700"
+                        >
+                           <i className="bx bx-money mr-3"></i>
+                           <span>Payments</span>
+                        </a>
+                        <a
+                           href="/reports"
+                           className="flex items-center text-white py-2 px-3 rounded mb-2 hover:bg-indigo-700"
+                        >
+                           <i className="bx bx-message-square-detail mr-3"></i>
+                           <span>Reports</span>
+                        </a>
+                        <a
+                           href="/settings"
+                           className="flex items-center text-white py-2 px-3 rounded mb-2 hover:bg-indigo-700"
+                        >
+                           <i className="bx bx-cog mr-3"></i>
+                           <span>Settings</span>
+                        </a>
+                     </div>
+                  </nav>
+
+                  {/* Main Content */}
+                  <main
+                     className={`mt-16 ${
+                        isSidebarOpen ? "md:ml-64" : ""
+                     } p-6 transition-all duration-300`}
+                  >
+                     <div className="max-w-7xl mx-auto">
+                        {/* Stats Cards */}
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                           {[
+                              {
+                                 title: "Current Occupancy",
+                                 value: stats.occupancy,
+                                 icon: "bx-car",
+                                 color: "text-indigo-600",
+                              },
+                              {
+                                 title: "Today's Revenue",
+                                 value: `RWF ${stats.revenue.toLocaleString()}`,
+                                 icon: "bx-dollar-circle",
+                                 color: "text-green-600",
+                              },
+                              {
+                                 title: "Vehicles (24h)",
+                                 value: stats.vehicles24h,
+                                 icon: "bx-transfer",
+                                 color: "text-blue-600",
+                              },
+                              {
+                                 title: "Alerts (24h)",
+                                 value: stats.alerts24h,
+                                 icon: "bx-bell",
+                                 color: "text-yellow-600",
+                              },
+                           ].map((stat, idx) => (
+                              <div
+                                 key={idx}
+                                 className="bg-white rounded-xl shadow-sm p-4 hover:-translate-y-1 transition-transform"
+                              >
+                                 <div className="flex items-center">
+                                    <div className="flex-1">
+                                       <h6 className="text-gray-500 text-sm mb-2">
+                                          {stat.title}
+                                       </h6>
+                                       <h2 className="text-2xl font-bold">
+                                          {stat.value}
+                                       </h2>
+                                    </div>
+                                    <i
+                                       className={`bx ${stat.icon} ${stat.color} text-3xl`}
+                                    ></i>
+                                 </div>
+                              </div>
+                           ))}
+                        </div>
+
+                        {/* Charts */}
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                           <div className="md:col-span-2 bg-white rounded-xl shadow-sm p-6">
+                              <h5 className="text-lg font-semibold mb-4">
+                                 Hourly Revenue
+                              </h5>
+                              <div className="chart-container">
+                                 <canvas id="revenueChart"></canvas>
+                              </div>
+                           </div>
+                           <div className="bg-white rounded-xl shadow-sm p-6">
+                              <h5 className="text-lg font-semibold mb-4">
+                                 Occupancy Rate
+                              </h5>
+                              <div className="chart-container">
+                                 <canvas id="occupancyChart"></canvas>
+                              </div>
+                           </div>
+                        </div>
+
+                        {/* Recent Activity and Alerts */}
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                           <div className="md:col-span-2 bg-white rounded-xl shadow-sm p-6">
+                              <h5 className="text-lg font-semibold mb-4">
+                                 Recent Vehicle Activity
+                              </h5>
+                              <div className="overflow-x-auto">
+                                 <table className="w-full">
+                                    <thead>
+                                       <tr className="text-left text-gray-500">
+                                          <th className="pb-2">Plate</th>
+                                          <th className="pb-2">Entry Time</th>
+                                          <th className="pb-2">Exit Time</th>
+                                          <th className="pb-2">Amount</th>
+                                          <th className="pb-2">Status</th>
+                                       </tr>
+                                    </thead>
+                                    <tbody>
+                                       {vehicleEntries.map((entry, idx) => (
+                                          <tr
+                                             key={idx}
+                                             className="border-t"
+                                          >
+                                             <td className="py-2 font-semibold">
+                                                {entry.plate_number}
+                                             </td>
+                                             <td className="py-2">
+                                                {new Date(
+                                                   entry.entry_time
+                                                ).toLocaleString()}
+                                             </td>
+                                             <td className="py-2">
+                                                {entry.exit_time ? (
+                                                   new Date(
+                                                      entry.exit_time
+                                                   ).toLocaleString()
+                                                ) : (
+                                                   <span className="bg-blue-100 text-blue-800 text-xs font-semibold px-2 py-1 rounded">
+                                                      Active
+                                                   </span>
+                                                )}
+                                             </td>
+                                             <td className="py-2">
+                                                {entry.amount_due
+                                                   ? `RWF ${entry.amount_due.toLocaleString()}`
+                                                   : "-"}
+                                             </td>
+                                             <td className="py-2">
+                                                <span
+                                                   className={`text-xs font-semibold px-2 py-1 rounded ${
+                                                      entry.payment_status
+                                                         ? "bg-green-100 text-green-800"
+                                                         : "bg-yellow-100 text-yellow-800"
+                                                   }`}
+                                                >
+                                                   {entry.payment_status
+                                                      ? "Paid"
+                                                      : "Pending"}
+                                                </span>
+                                             </td>
+                                          </tr>
+                                       ))}
+                                    </tbody>
+                                 </table>
+                              </div>
+                           </div>
+                           <div className="bg-white rounded-xl shadow-sm p-6">
+                              <h5 className="text-lg font-semibold mb-4">
+                                 Recent Alerts
+                              </h5>
+                              <div>
+                                 {alerts.map((alert, idx) => (
+                                    <div
+                                       key={idx}
+                                       className={`p-3 rounded-lg mb-2 ${getAlertClass(
+                                          alert.alert_type
+                                       )}`}
+                                    >
+                                       <div className="flex items-center">
+                                          <i
+                                             className={`bx ${getAlertIcon(
+                                                alert.alert_type
+                                             )} mr-2`}
+                                          ></i>
+                                          <div>
+                                             <p className="text-sm text-gray-500">
+                                                {new Date(
+                                                   alert.alert_time
+                                                ).toLocaleString()}
+                                             </p>
+                                             <p>{alert.alert_message}</p>
+                                             <p className="text-sm text-gray-500">
+                                                Vehicle:{" "}
+                                                {alert.plate_number ||
+                                                   "Unknown"}
+                                             </p>
+                                          </div>
+                                       </div>
+                                    </div>
+                                 ))}
+                              </div>
+                           </div>
+                        </div>
+                     </div>
+                  </main>
+               </div>
+            );
+         };
+
+         ReactDOM.render(<Dashboard />, document.getElementById("root"));
+      </script>
+   </body>
+</html>
